@@ -51,6 +51,16 @@ app.post("/sessions", (req, res) => {
   );
 });
 
+app.get("/sessions", (req, res) => {
+  db.all("SELECT * FROM study_sessions", (err, rows) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Failed to fetch sessions" });
+    }
+    res.json(rows);
+  });
+});
+
 const PORT = 5000;
 app.listen(PORT, () =>
   console.log(`Server running on http://localhost:${PORT}`)

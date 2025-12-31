@@ -11,6 +11,10 @@ const Timer: React.FC = () => {
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [completedFocusSessions, setCompletedFocusSessions] = useState(0);
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+
+  const sessionEndedRef = React.useRef(false);
+  const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const getModeSeconds = (mode: TimerMode) => {
     switch (mode) {
@@ -28,10 +32,15 @@ const Timer: React.FC = () => {
   useEffect(() => {
     if (!isRunning) return;
 
-    const interval = setInterval(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    sessionEndedRef.current = false;
+
+    intervalRef.current = setInterval(() => {
       setSecondsLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
+        if (prev <= 1 && !sessionEndedRef.current) {
+          sessionEndedRef.current = true;
+          clearInterval(intervalRef.current!);
+          intervalRef.current = null;
           handleSessionEnd();
           return 0;
         }
@@ -39,20 +48,45 @@ const Timer: React.FC = () => {
       });
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, [isRunning]);
-
   const handleSessionEnd = () => {
-    if (mode === "FOCUS") {
+    if (mode === "FOCUS" && sessionStartTime) {
+      const endedAt = new Date();
+      const durationMinutes =
+        (endedAt.getTime() - sessionStartTime.getTime()) / 60000;
+
+      const payload = {
+        startedAt: sessionStartTime.toISOString(),
+        endedAt: endedAt.toISOString(),
+        durationMinutes: Math.max(1, Math.round(durationMinutes)),
+      };
+
+      console.log("Sending session to backend:", payload); // debug log
+
+      fetch("http://localhost:5000/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+        .then((res) => {
+          if (!res.ok) {
+            console.error("Backend rejected the session:", res.status);
+          }
+          return res.json();
+        })
+        .catch((err) => console.error("Failed to save session:", err));
+
       const newCount = completedFocusSessions + 1;
       setCompletedFocusSessions(newCount);
 
       const nextMode = newCount % 4 === 0 ? "LONG_BREAK" : "SHORT_BREAK";
       setMode(nextMode);
-
       setSecondsLeft(getModeSeconds(nextMode));
       setIsRunning(false);
-      // TODO: Backend
+      setSessionStartTime(null);
     } else {
       setMode("FOCUS");
       setSecondsLeft(getModeSeconds("FOCUS"));
@@ -65,6 +99,10 @@ const Timer: React.FC = () => {
     setMode(m);
     setSecondsLeft(getModeSeconds(m));
     setIsRunning(true);
+
+    if (m === "FOCUS") {
+      setSessionStartTime(new Date());
+    }
   };
 
   const pauseTimer = () => setIsRunning(false);
