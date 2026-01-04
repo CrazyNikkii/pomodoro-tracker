@@ -2,8 +2,15 @@ import React, { useState, useEffect } from "react";
 
 type TimerMode = "IDLE" | "FOCUS" | "SHORT_BREAK" | "LONG_BREAK";
 
-const FOCUS_MINUTES = 0.05;
-const SHORT_BREAK_MINUTES = 0.05;
+type StudySession = {
+  id: number;
+  started_at: string;
+  ended_at: string;
+  duration_minutes: number;
+};
+
+const FOCUS_MINUTES = 3;
+const SHORT_BREAK_MINUTES = 1;
 const LONG_BREAK_MINUTES = 0.1;
 
 const Timer: React.FC = () => {
@@ -12,6 +19,7 @@ const Timer: React.FC = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [completedFocusSessions, setCompletedFocusSessions] = useState(0);
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+  const [sessions, setSessions] = useState<StudySession[]>([]);
 
   const sessionEndedRef = React.useRef(false);
   const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -52,6 +60,14 @@ const Timer: React.FC = () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [isRunning]);
+
+  useEffect(() => {
+    fetch("http://localhost:5000/sessions")
+      .then((res) => res.json())
+      .then((data) => setSessions(data))
+      .catch((err) => console.error("Failed to fetch sessions", err));
+  }, []);
+
   const handleSessionEnd = () => {
     if (mode === "FOCUS" && sessionStartTime) {
       const endedAt = new Date();
@@ -127,6 +143,17 @@ const Timer: React.FC = () => {
       <button onClick={pauseTimer}>Pause</button>
       <button onClick={resetTimer}>Reset</button>
       <p>Completed focus sessions: {completedFocusSessions}</p>
+      <hr />
+      <h3>Study Sessions</h3>
+
+      <ul>
+        {sessions.map((session) => (
+          <li key={session.id}>
+            {new Date(session.started_at).toLocaleString()} —{" "}
+            {session.duration_minutes} min
+          </li>
+        ))}
+      </ul>
     </div>
   );
 };
