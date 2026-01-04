@@ -9,8 +9,8 @@ type StudySession = {
   duration_minutes: number;
 };
 
-const FOCUS_MINUTES = 3;
-const SHORT_BREAK_MINUTES = 1;
+const FOCUS_MINUTES = 0.05;
+const SHORT_BREAK_MINUTES = 0.05;
 const LONG_BREAK_MINUTES = 0.1;
 
 const Timer: React.FC = () => {
@@ -23,6 +23,18 @@ const Timer: React.FC = () => {
 
   const sessionEndedRef = React.useRef(false);
   const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const alarmRef = React.useRef<HTMLAudioElement | null>(null);
+  if (!alarmRef.current) {
+    alarmRef.current = new Audio("/alarm.mp3");
+    alarmRef.current.loop = true;
+  }
+  const stopAlarm = () => {
+    if (alarmRef.current) {
+      alarmRef.current.pause();
+      alarmRef.current.currentTime = 0;
+    }
+  };
 
   const getModeSeconds = (mode: TimerMode) => {
     switch (mode) {
@@ -69,6 +81,7 @@ const Timer: React.FC = () => {
   }, []);
 
   const handleSessionEnd = () => {
+    alarmRef.current?.play().catch(() => {});
     if (mode === "FOCUS" && sessionStartTime) {
       const endedAt = new Date();
       const durationMinutes =
@@ -111,6 +124,7 @@ const Timer: React.FC = () => {
   };
 
   const startTimer = (newMode?: TimerMode) => {
+    stopAlarm();
     const m = newMode || mode || "FOCUS";
     setMode(m);
     setSecondsLeft(getModeSeconds(m));
@@ -121,8 +135,12 @@ const Timer: React.FC = () => {
     }
   };
 
-  const pauseTimer = () => setIsRunning(false);
+  const pauseTimer = () => {
+    stopAlarm();
+    setIsRunning(false);
+  };
   const resetTimer = () => {
+    stopAlarm();
     setIsRunning(false);
     setSecondsLeft(getModeSeconds("FOCUS"));
     setMode("IDLE");
