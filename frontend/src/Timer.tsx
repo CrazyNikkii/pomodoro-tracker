@@ -81,7 +81,9 @@ const Timer: React.FC = () => {
   }, []);
 
   const handleSessionEnd = () => {
-    alarmRef.current?.play().catch(() => {});
+    if (mode !== "IDLE") {
+      alarmRef.current?.play().catch(() => {});
+    }
     if (mode === "FOCUS" && sessionStartTime) {
       const endedAt = new Date();
       const durationMinutes =
